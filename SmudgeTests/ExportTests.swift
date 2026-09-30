@@ -49,6 +49,95 @@ struct ExportTests {
         #expect(result == html)
     }
 
+    // MARK: ImageInliner — path containment
+
+    /// Builds `<documentDir>/doc.md` with a secret one level above it, and
+    /// returns both so a test can try to reach the secret from the document.
+    private func makeEscapeFixture() throws -> (documentURL: URL, secretURL: URL, cleanup: URL) {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let documentDir = root.appendingPathComponent("notes")
+        try FileManager.default.createDirectory(at: documentDir, withIntermediateDirectories: true)
+
+        let secretURL = root.appendingPathComponent("secret.png")
+        try Data("SUPER SECRET".utf8).write(to: secretURL)
+
+        return (documentDir.appendingPathComponent("doc.md"), secretURL, root)
+    }
+
+    @Test func doesNotInlineImageOutsideDocumentDirectory() throws {
+        let fixture = try makeEscapeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.cleanup) }
+
+        let html = "<img src=\"../secret.png\" alt=\"\">"
+        let result = ImageInliner.inline(html: html, relativeTo: fixture.documentURL)
+
+        #expect(result == html)
+        #expect(!result.contains("base64"))
+    }
+
+    @Test func doesNotInlinePercentEncodedTraversal() throws {
+        let fixture = try makeEscapeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.cleanup) }
+
+        let html = "<img src=\"%2e%2e/secret.png\" alt=\"\">"
+        let result = ImageInliner.inline(html: html, relativeTo: fixture.documentURL)
+
+        #expect(result == html)
+    }
+
+    @Test func doesNotInlineAbsoluteFileURLOutsideDocumentDirectory() throws {
+        let fixture = try makeEscapeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.cleanup) }
+
+        let html = "<img src=\"\(fixture.secretURL.absoluteString)\" alt=\"\">"
+        let result = ImageInliner.inline(html: html, relativeTo: fixture.documentURL)
+
+        #expect(result == html)
+        #expect(!result.contains("base64"))
+    }
+
+    @Test func doesNotInlineSymlinkPointingOutsideDocumentDirectory() throws {
+        let fixture = try makeEscapeFixture()
+        defer { try? FileManager.default.removeItem(at: fixture.cleanup) }
+
+        // A symlink that lives inside the document folder but resolves out.
+        let link = fixture.documentURL.deletingLastPathComponent().appendingPathComponent("link.png")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: fixture.secretURL)
+
+        let html = "<img src=\"link.png\" alt=\"\">"
+        let result = ImageInliner.inline(html: html, relativeTo: fixture.documentURL)
+
+        #expect(result == html)
+    }
+
+    @Test func doesNotInlineNonImageFileBesideDocument() throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let secret = tempDir.appendingPathComponent("id_rsa")
+        try Data("PRIVATE KEY".utf8).write(to: secret)
+
+        let html = "<img src=\"id_rsa\" alt=\"\">"
+        let result = ImageInliner.inline(html: html, relativeTo: tempDir.appendingPathComponent("doc.md"))
+
+        #expect(result == html)
+    }
+
+    // MARK: EditorBridge — navigation policy
+
+    @Test @MainActor func onlyBundledEditorURLsAreTreatedAsInternal() throws {
+        let editorDir = try #require(
+            Bundle.main.resourceURL?.appendingPathComponent("editor", isDirectory: true)
+        )
+
+        #expect(EditorBridge.isEditorBundleURL(editorDir.appendingPathComponent("index.html")))
+        #expect(!EditorBridge.isEditorBundleURL(URL(string: "https://example.com")!))
+        #expect(!EditorBridge.isEditorBundleURL(URL(fileURLWithPath: "/etc/passwd")))
+        // `../` escape out of the bundle directory.
+        #expect(!EditorBridge.isEditorBundleURL(editorDir.appendingPathComponent("../../secret.html")))
+    }
+
     // MARK: KatexCSSInliner
 
     @Test func katexCSSFontsAreInlinedAsBase64() throws {

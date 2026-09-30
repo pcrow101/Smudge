@@ -3,7 +3,7 @@ import type { EditorState } from "@codemirror/state";
 import { StateField } from "@codemirror/state";
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { footnoteLabel } from "./footnoteSyntax";
-import { exportRenderer } from "./exportRender";
+import { renderInlineHTML } from "./exportRender";
 import { FootnoteRefWidget, FootnotesSectionWidget, type FootnoteItem } from "./widgets";
 import { HIDE, activeLineSpan, activeLineSet, overlapsActiveLine, toDecorationSet, type Entry } from "./livePreview";
 
@@ -84,7 +84,7 @@ function buildFootnoteEntries(state: EditorState): Entry[] {
       index = nextIndex++;
       numbering.set(ref.label, index);
       const raw = state.doc.sliceString(def.contentFrom, def.to);
-      items.push({ index, html: exportRenderer().renderInline(raw), refFrom: ref.from });
+      items.push({ index, html: renderInlineHTML(raw), refFrom: ref.from });
     }
 
     if (!isActive(ref.from, ref.to)) {

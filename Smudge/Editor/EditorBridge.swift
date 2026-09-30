@@ -287,6 +287,36 @@ extension EditorBridge: WKScriptMessageHandler {
 // MARK: - WKNavigationDelegate
 
 extension EditorBridge: WKNavigationDelegate {
+    /// The editor web view is an editing surface, not a browser: the only
+    /// thing it should ever load in place is its own bundled `editor/`
+    /// directory. Without this, a link or `<meta refresh>` reachable from
+    /// untrusted document content could navigate the view away and take the
+    /// unsaved buffer with it. Anything external is cancelled and handed to
+    /// the user's browser instead.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationAction: WKNavigationAction,
+        decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+    ) {
+        guard let url = navigationAction.request.url else {
+            decisionHandler(.cancel)
+            return
+        }
+
+        // Covers the initial `loadFileURL` and same-document `#fragment`
+        // jumps, both of which stay within the bundle.
+        if Self.isEditorBundleURL(url) {
+            decisionHandler(.allow)
+            return
+        }
+
+        decisionHandler(.cancel)
+
+        if navigationAction.navigationType == .linkActivated {
+            Self.openExternally(url)
+        }
+    }
+
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         #if DEBUG
         print("EditorBridge: navigation failed: \(error.localizedDescription)")
@@ -297,6 +327,62 @@ extension EditorBridge: WKNavigationDelegate {
         #if DEBUG
         print("EditorBridge: provisional navigation failed: \(error.localizedDescription)")
         #endif
+    }
+}
+
+// MARK: - WKUIDelegate
+
+extension EditorBridge: WKUIDelegate {
+    /// `target="_blank"` and `window.open` bypass `decidePolicyFor`
+    /// entirely, so they need blocking here too. Returning `nil` refuses to
+    /// create the child web view.
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+        if let url = navigationAction.request.url {
+            Self.openExternally(url)
+        }
+        return nil
+    }
+}
+
+// MARK: - Navigation helpers
+
+// Deliberately internal rather than private so `SmudgeTests` can exercise
+// the containment check directly — it's the load-bearing part of the policy.
+extension EditorBridge {
+    /// The bundled editor directory, standardized and symlink-resolved once
+    /// so `isEditorBundleURL` can compare against a stable path.
+    static let editorDirectory: URL? = Bundle.main.resourceURL?
+        .appendingPathComponent("editor", isDirectory: true)
+        .standardizedFileURL
+        .resolvingSymlinksInPath()
+
+    /// True if `url` points at a file inside the bundled editor directory.
+    /// Compares path components rather than string prefixes, and resolves
+    /// first, so `../` escapes can't smuggle a path past the check.
+    static func isEditorBundleURL(_ url: URL) -> Bool {
+        guard url.isFileURL, let directory = editorDirectory else { return false }
+        let target = url.standardizedFileURL.resolvingSymlinksInPath().pathComponents
+        let base = directory.pathComponents
+        guard target.count > base.count else { return false }
+        return Array(target.prefix(base.count)) == base
+    }
+
+    /// Hands a link off to the user's default browser/mail client — but only
+    /// for schemes that are safe to delegate. Passing an arbitrary scheme to
+    /// `NSWorkspace` would let document content open local files or launch
+    /// whatever app has claimed a custom scheme.
+    static func openExternally(_ url: URL) {
+        guard let scheme = url.scheme?.lowercased(),
+              ["http", "https", "mailto"].contains(scheme)
+        else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 }
 

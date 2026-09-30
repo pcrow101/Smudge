@@ -26,6 +26,9 @@ struct WebEditorView: NSViewRepresentable {
         let webView = ContextMenuWebView(frame: .zero, configuration: configuration)
         controller.add(bridge, name: EditorBridge.handlerName)
         webView.navigationDelegate = bridge
+        // Needed as well as the navigation delegate: `window.open` and
+        // `target="_blank"` take the UI-delegate path, not `decidePolicyFor`.
+        webView.uiDelegate = bridge
 
         #if DEBUG
         if #available(macOS 13.3, *) {

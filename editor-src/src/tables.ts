@@ -34,6 +34,21 @@ function parseAlignment(cell: string): Align {
   return null;
 }
 
+/**
+ * Schemes a table-cell link may use. Anything else — `javascript:`,
+ * `vbscript:`, `data:` — is dropped and the link renders as plain text.
+ * Relative and fragment URLs have no scheme and are allowed through.
+ */
+const SAFE_LINK_SCHEME = /^(?:https?:|mailto:|tel:|#|\/|\.)/i;
+
+function isSafeCellLink(href: string): boolean {
+  const trimmed = href.trim();
+  // A scheme is everything before the first `:` that isn't preceded by a
+  // `/`, `?` or `#`. No scheme at all means a relative URL, which is fine.
+  if (!/^[a-z0-9+.-]*:/i.test(trimmed)) return true;
+  return SAFE_LINK_SCHEME.test(trimmed);
+}
+
 /** Renders inline emphasis/code/links within a table cell as plain-enough HTML. */
 function renderInlineCell(text: string): string {
   const escaped = text
@@ -44,7 +59,14 @@ function renderInlineCell(text: string): string {
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/`([^`]+)`/g, "<code>$1</code>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+    .replace(/\[([^\]]*)\]\(([^)]+)\)/g, (_whole, label: string, href: string) => {
+      // The `&<>` escaping above doesn't cover `"`, so a raw href could
+      // otherwise close the attribute and add its own. Quote-encode it, and
+      // drop the link entirely if the scheme isn't one we trust.
+      if (!isSafeCellLink(href)) return label;
+      const safeHref = href.replace(/"/g, "&quot;");
+      return `<a href="${safeHref}">${label}</a>`;
+    });
 }
 
 /**

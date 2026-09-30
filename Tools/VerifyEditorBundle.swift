@@ -154,6 +154,9 @@ final class Harness: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
 
             // --- Phase 7: export rendering ---
             await runExportRenderChecks()
+
+            // --- Export sanitization ---
+            await runSanitizationChecks()
             finish()
         }
     }
@@ -416,13 +419,107 @@ final class Harness: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         )
         await check(
             "export marks checked task item",
-            "window.SmudgeEditor.renderHTML().includes('checked>')",
+            // DOMPurify re-serializes through the DOM, so boolean attributes
+            // come back in their normalized `checked=\"\"` form rather than
+            // bare. Semantically identical; assert on the normalized shape.
+            "window.SmudgeEditor.renderHTML().includes('checked=\"\"')",
             expect: "1"
         )
         await check(
             "export strips raw checkbox syntax from text",
             "!window.SmudgeEditor.renderHTML().includes('[ ] todo') && !window.SmudgeEditor.renderHTML().includes('[x] done')",
             expect: "1"
+        )
+    }
+
+    /// Export output is sanitized (`src/sanitize.ts`). These are regression
+    /// guards for that: an exported file is opened outside the app, where the
+    /// editor's CSP no longer applies, so anything executable that survives
+    /// `renderHTML()` would run on whoever opens the exported document.
+    private func runSanitizationChecks() async {
+        /// Renders `markdown` and asserts a JS predicate over the result,
+        /// which is exposed to the predicate as `h`.
+        func renderCheck(_ name: String, markdown: String, predicate: String) async {
+            let escaped = markdown
+                .replacingOccurrences(of: "\\", with: "\\\\")
+                .replacingOccurrences(of: "'", with: "\\'")
+                .replacingOccurrences(of: "\n", with: "\\n")
+            _ = try? await webView.evaluateJavaScript(
+                "window.SmudgeEditor.setDoc('\(escaped)', 300)"
+            )
+            await check(name, "(() => { const h = window.SmudgeEditor.renderHTML(); return \(predicate); })()", expect: "1")
+        }
+
+        // --- Script execution vectors are removed ---
+        await renderCheck(
+            "sanitizer drops script tags",
+            markdown: "Hello\n\n<script>alert(1)</script>\n",
+            predicate: "!h.includes('<script') && !h.includes('alert(1)')"
+        )
+        await renderCheck(
+            "sanitizer strips inline event handlers",
+            markdown: "<img src=x onerror=alert(1)>\n",
+            predicate: "!h.toLowerCase().includes('onerror')"
+        )
+        await renderCheck(
+            "sanitizer strips svg event handlers",
+            markdown: "<svg onload=alert(1)></svg>\n",
+            predicate: "!h.toLowerCase().includes('onload')"
+        )
+        await renderCheck(
+            "sanitizer drops iframes",
+            markdown: "<iframe src=\"https://evil.test\"></iframe>\n",
+            predicate: "!h.includes('<iframe')"
+        )
+        await renderCheck(
+            "sanitizer drops style tags",
+            markdown: "<style>body{display:none}</style>\n",
+            predicate: "!h.includes('<style')"
+        )
+        await renderCheck(
+            "sanitizer drops base tags",
+            markdown: "<base href=\"https://evil.test/\">\n",
+            predicate: "!h.includes('<base')"
+        )
+        await renderCheck(
+            "sanitizer refuses javascript: links",
+            markdown: "[click](javascript:alert(1))\n",
+            predicate: "!h.includes('href=\"javascript')"
+        )
+
+        // --- Legitimate content survives, and outbound links are hardened ---
+        await renderCheck(
+            "outbound links get noopener",
+            markdown: "[example](https://example.com)\n",
+            predicate: "h.includes('href=\"https://example.com\"') && h.includes('rel=\"noopener noreferrer nofollow\"')"
+        )
+        await renderCheck(
+            "footnote backlinks stay in-document",
+            markdown: "Text[^1]\n\n[^1]: A **note**.\n",
+            // `#fn1` / `#fnref1` must not be turned into new-window links.
+            predicate: "h.includes('href=\"#fn1\"') && h.includes('<strong>note</strong>') && !h.includes('href=\"#fn1\" target')"
+        )
+        // --- Untrusted YAML front matter can't pollute Object.prototype ---
+        // Regression guard for CVE-2025-64718 (js-yaml < 4.1.1), which is
+        // reachable here because front matter is parsed with the default
+        // schema straight from the document.
+        _ = try? await webView.evaluateJavaScript(
+            "window.SmudgeEditor.setDoc('---\\n__proto__:\\n  polluted: yes\\n---\\n\\nBody\\n', 301)"
+        )
+        _ = try? await webView.evaluateJavaScript("window.SmudgeEditor.getFrontMatterMeta()")
+        await check(
+            "front matter yaml can't pollute Object.prototype",
+            "({}).polluted === undefined",
+            expect: "1"
+        )
+
+        await renderCheck(
+            "katex mathml annotation survives sanitization",
+            markdown: "Inline $x^2$ here.\n",
+            // Regression guard: DOMPurify's default MathML profile drops
+            // <semantics>/<annotation>, which unwraps the LaTeX source into a
+            // stray text node next to the rendered equation.
+            predicate: "h.includes('<semantics>') && h.includes('encoding=\"application/x-tex\"')"
         )
     }
 

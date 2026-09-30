@@ -1,10 +1,18 @@
 import MarkdownIt from "markdown-it";
-import type StateCore from "markdown-it/lib/rules_core/state_core.mjs";
-import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
-import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
+// markdown-it 15 ships its own types and exports the rule-state classes by
+// name. The default export is a *value* (a callable class), so the instance
+// type has to be imported separately and aliased to avoid colliding with it.
+import type {
+  MarkdownIt as MarkdownItInstance,
+  StateBlock,
+  StateCore,
+  StateInline,
+  Token
+} from "markdown-it";
 import katex from "katex";
 import footnotePlugin from "markdown-it-footnote";
 import { emojiForShortcode } from "./emoji";
+import { sanitizeBlockHTML, sanitizeInlineHTML } from "./sanitize";
 
 /**
  * The export-time Markdown → HTML renderer, used by `renderHTML()` for
@@ -106,18 +114,19 @@ function mathBlock(state: StateBlock, startLine: number, endLine: number, silent
   return true;
 }
 
-function mathPlugin(md: MarkdownIt): void {
+function mathPlugin(md: MarkdownItInstance): void {
   md.inline.ruler.before("escape", "math_inline", mathInline);
   md.block.ruler.before("fence", "math_block", mathBlock, { alt: ["paragraph", "blockquote", "list"] });
-  md.renderer.rules.math_inline = (tokens, idx) => renderMath(tokens[idx].content, false);
-  md.renderer.rules.math_block = (tokens, idx) =>
+  md.renderer.rules.math_inline = (tokens: Token[], idx: number) =>
+    renderMath(tokens[idx].content, false);
+  md.renderer.rules.math_block = (tokens: Token[], idx: number) =>
     `<p class="smudge-math-block">${renderMath(tokens[idx].content, true)}</p>\n`;
 }
 
 const emojiShortcodeRe = /^:([a-zA-Z0-9_+-]+):/;
 
 /** `:shortcode:` → Unicode glyph, reusing the same lookup table live preview uses. */
-function emojiPlugin(md: MarkdownIt): void {
+function emojiPlugin(md: MarkdownItInstance): void {
   const emojiRule = (state: StateInline, silent: boolean): boolean => {
     if (state.src.charCodeAt(state.pos) !== 0x3a /* : */) {
       return false;
@@ -135,7 +144,7 @@ function emojiPlugin(md: MarkdownIt): void {
     return true;
   };
   md.inline.ruler.before("escape", "emoji", emojiRule);
-  md.renderer.rules.emoji = (tokens, idx) => tokens[idx].content;
+  md.renderer.rules.emoji = (tokens: Token[], idx: number) => tokens[idx].content;
 }
 
 const taskItemRe = /^\[([ xX])\]\s(.*)$/s;
@@ -146,7 +155,7 @@ const taskItemRe = /^\[([ xX])\]\s(.*)$/s;
  * parsing (the same technique the `markdown-it-task-lists` plugin uses) and
  * replaces the literal `[ ]`/`[x]` text with a disabled `<input>` checkbox.
  */
-function taskListsPlugin(md: MarkdownIt): void {
+function taskListsPlugin(md: MarkdownItInstance): void {
   md.core.ruler.after("inline", "smudge_task_lists", (state: StateCore) => {
     const { tokens } = state;
     for (let i = 0; i < tokens.length; i++) {
@@ -217,7 +226,7 @@ function highlightInline(state: StateInline, silent: boolean): boolean {
   return true;
 }
 
-function highlightPlugin(md: MarkdownIt): void {
+function highlightPlugin(md: MarkdownItInstance): void {
   md.inline.ruler.before("emphasis", "highlight", highlightInline);
 }
 
@@ -279,14 +288,26 @@ function deflistBlock(state: StateBlock, startLine: number, endLine: number, sil
   return true;
 }
 
-function deflistPlugin(md: MarkdownIt): void {
+function deflistPlugin(md: MarkdownItInstance): void {
   md.block.ruler.before("paragraph", "deflist", deflistBlock, { alt: ["paragraph", "blockquote", "list"] });
 }
 
-let cached: MarkdownIt | undefined;
+let cached: MarkdownItInstance | undefined;
 
-/** The shared export renderer instance — configuration only needs building once. */
-export function exportRenderer(): MarkdownIt {
+/**
+ * The shared export renderer instance — configuration only needs building
+ * once.
+ *
+ * Note `html: true`: raw HTML in the source is passed through, which is
+ * deliberate (people embed `<figure>`, `<details>` and `<kbd>` in Markdown
+ * and expect it to work) but means a document the user did not write
+ * controls the markup. Nothing this returns is safe to assign to
+ * `innerHTML` or to write into an exported file as-is — go through
+ * `renderDocumentHTML()` or `renderInlineHTML()` below, which sanitize.
+ * This stays exported only so benchmarks can measure parse cost in
+ * isolation.
+ */
+export function exportRenderer(): MarkdownItInstance {
   if (!cached) {
     cached = new MarkdownIt({ html: true, linkify: true, typographer: false, breaks: false })
       .use(mathPlugin)
@@ -304,4 +325,25 @@ export function exportRenderer(): MarkdownIt {
       .use(footnotePlugin);
   }
   return cached;
+}
+
+/**
+ * Renders a whole document to sanitized HTML. This is what `renderHTML()`
+ * hands back to Swift for HTML/PDF export.
+ *
+ * Sanitizing matters most here: an exported file is opened outside the app,
+ * where the editor's CSP does not apply, and it is the artefact users
+ * forward to other people. A `<script>` surviving this call would run with
+ * `file://` privileges on someone else's machine.
+ */
+export function renderDocumentHTML(body: string): string {
+  return sanitizeBlockHTML(exportRenderer().render(body));
+}
+
+/**
+ * Renders a fragment (no block wrapper) to sanitized HTML — used for
+ * footnote previews, which are assigned to `innerHTML` in the live editor.
+ */
+export function renderInlineHTML(source: string): string {
+  return sanitizeInlineHTML(exportRenderer().renderInline(source));
 }
