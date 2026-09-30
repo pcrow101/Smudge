@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none';
+               script-src 'self';
+               style-src 'self' 'unsafe-inline';
+               font-src 'self' data:;
+               img-src 'self' data: blob: file:;
+               media-src 'self' file:;
+               connect-src 'none';
+               form-action 'none';
+               base-uri 'none';
+               object-src 'none';
+               frame-src 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Smudge Editor</title>
+    <!-- KaTeX ships unbundled here (public/katex/), copied verbatim rather
+         than run through the JS/CSS bundler, which force-inlined its fonts
+         as base64 and bloated editor.css past a megabyte. -->
+    <link rel="stylesheet" href="katex/katex.min.css" />
+    <link rel="stylesheet" href="editor.css" />
+  </head>
+  <body>
+    <div id="smudge-root"></div>
+    <script src="editor.js"></script>
+  </body>
+</html>

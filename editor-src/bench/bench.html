@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Smudge Editor — Benchmark</title>
+    <style>
+      body { font: 13px -apple-system, sans-serif; margin: 0; display: flex; height: 100vh; }
+      #panel { width: 320px; padding: 16px; border-right: 1px solid #ddd; overflow-y: auto; }
+      #smudge-root { flex: 1; height: 100vh; }
+      button { display: block; width: 100%; margin-bottom: 8px; padding: 6px; }
+      pre { white-space: pre-wrap; font-size: 12px; background: #f5f5f5; padding: 8px; border-radius: 4px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      td, th { border: 1px solid #ddd; padding: 4px; text-align: right; }
+      th:first-child, td:first-child { text-align: left; }
+    </style>
+  </head>
+  <body>
+    <div id="panel">
+      <h3>Smudge Editor Benchmark</h3>
+      <button data-size="100">100 KB</button>
+      <button data-size="1024">1 MB</button>
+      <button data-size="5120">5 MB</button>
+      <button data-size="20480">20 MB</button>
+      <button id="scroll-test">Scroll frame time (current doc)</button>
+      <table id="results"></table>
+      <pre id="log"></pre>
+    </div>
+    <div id="smudge-root"></div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

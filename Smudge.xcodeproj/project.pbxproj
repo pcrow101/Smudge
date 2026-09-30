@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		D6E0100000000000000000E3 /* editor in Resources */ = {isa = PBXBuildFile; fileRef = D6E0100000000000000000E2 /* editor */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		D616C1DC3049837A00D454EE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -27,6 +31,7 @@
 		D616C1CE3049837600D454EE /* Smudge.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Smudge.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D616C1DB3049837A00D454EE /* SmudgeTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SmudgeTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D616C1E53049837B00D454EE /* SmudgeUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SmudgeUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D6E0100000000000000000E2 /* editor */ = {isa = PBXFileReference; lastKnownFileType = folder; name = editor; path = Resources/editor; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -76,6 +81,7 @@
 			isa = PBXGroup;
 			children = (
 				D616C1D03049837600D454EE /* Smudge */,
+				D6E0100000000000000000E2 /* editor */,
 				D616C1DE3049837A00D454EE /* SmudgeTests */,
 				D616C1E83049837B00D454EE /* SmudgeUITests */,
 				D616C1CF3049837600D454EE /* Products */,
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D6E0100000000000000000E3 /* editor in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -400,9 +407,11 @@
 				DEVELOPMENT_TEAM = X7Q7Y54HX2;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Smudge-Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -432,9 +441,11 @@
 				DEVELOPMENT_TEAM = X7Q7Y54HX2;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_OUTGOING_NETWORK_CONNECTIONS = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Smudge-Info.plist";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
