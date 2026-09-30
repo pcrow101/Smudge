@@ -120,6 +120,7 @@ struct HelpView: View {
             }
             .padding(24)
         }
+        .textSelection(.enabled)
         .frame(minWidth: 480, idealWidth: 560, minHeight: 420, idealHeight: 640)
         .navigationTitle("Smudge Help")
     }

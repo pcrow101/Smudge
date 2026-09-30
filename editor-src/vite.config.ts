@@ -20,7 +20,10 @@ export default defineConfig({
     target: "safari18",
     cssCodeSplit: false,
     sourcemap: false,
-    minify: "esbuild",
+    // Vite 8 builds with rolldown, which ships its own (oxc) minifier.
+    // esbuild is no longer bundled, and pulling it back in just for
+    // minification would re-add a native dependency with install scripts.
+    minify: "oxc",
     assetsInlineLimit: 0,
     lib: {
       entry: fileURLToPath(new URL("./src/index.ts", import.meta.url)),

@@ -22,8 +22,6 @@ import { MathExtension } from "./mathSyntax";
 import { FrontMatterExtension } from "./frontMatterSyntax";
 import { HighlightExtension } from "./highlightSyntax";
 import { DefinitionListExtension } from "./definitionListSyntax";
-import { FootnoteExtension } from "./footnoteSyntax";
-import { footnoteField } from "./footnotes";
 import {
   extractFrontMatterMeta,
   findFrontMatterNode,
@@ -32,7 +30,7 @@ import {
   type FrontMatterField
 } from "./frontMatter";
 import { docSizeBytes, resolveProfile } from "./perf";
-import { exportRenderer } from "./exportRender";
+import { renderDocumentHTML } from "./exportRender";
 import "./styles.css";
 
 const VERSION = "phase-7";
@@ -67,7 +65,7 @@ function markdownExtensions() {
   return markdown({
     base: markdownLanguage,
     codeLanguages,
-    extensions: [GFM, Subscript, Superscript, Emoji, MathExtension, FrontMatterExtension, HighlightExtension, DefinitionListExtension, FootnoteExtension],
+    extensions: [GFM, Subscript, Superscript, Emoji, MathExtension, FrontMatterExtension, HighlightExtension, DefinitionListExtension],
     addKeymap: true
   });
 }
@@ -85,7 +83,7 @@ function modeExtensions(currentMode: EditorMode, profile: ResolvedPerfProfile) {
   if (currentMode !== "preview" || profile === "plain") {
     return [attrs];
   }
-  return [attrs, livePreviewExtension({ collapseWidgets: profile === "reduced", frontMatterDefaultCollapsed }), footnoteField];
+  return [attrs, livePreviewExtension({ collapseWidgets: profile === "reduced", frontMatterDefaultCollapsed })];
 }
 
 /** Content attributes driven by performance profile — spellcheck is expensive on huge plain-text documents. */
@@ -309,7 +307,7 @@ const api: SmudgeEditorAPI = {
 
   renderHTML() {
     const { body } = extractFrontMatterMeta(view.state.doc.toString());
-    return exportRenderer().render(body);
+    return renderDocumentHTML(body);
   },
 
   focus() {
