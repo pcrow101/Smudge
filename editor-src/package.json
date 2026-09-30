@@ -1,0 +1,46 @@
+{
+  "name": "smudge-editor",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CodeMirror 6 live-preview editor core for the Smudge macOS app.",
+  "scripts": {
+    "copy:katex": "node scripts/copy-katex-assets.mjs",
+    "build": "npm run copy:katex && vite build",
+    "watch": "npm run copy:katex && vite build --watch",
+    "typecheck": "tsc --noEmit",
+    "checksum": "node scripts/checksum.mjs",
+    "bench": "vite --config bench/vite.config.ts"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-css": "^6.3.1",
+    "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/lang-javascript": "^6.2.5",
+    "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.3.2",
+    "@codemirror/lang-yaml": "^6.1.2",
+    "@codemirror/language": "^6.11.0",
+    "@codemirror/legacy-modes": "^6.5.4",
+    "@codemirror/search": "^6.5.10",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.36.4",
+    "@lezer/common": "^1.2.3",
+    "@lezer/highlight": "^1.2.1",
+    "@lezer/markdown": "^1.4.2",
+    "js-yaml": "^4.1.0",
+    "katex": "^0.16.21",
+    "markdown-it": "^14.1.0",
+    "markdown-it-footnote": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/katex": "^0.16.7",
+    "@types/markdown-it": "^14.1.2",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0"
+  },
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  }
+}

@@ -1,0 +1,356 @@
+/*
+ * Base chrome for the Smudge editor surface.
+ *
+ * All colours are CSS custom properties so Swift can repaint instantly when
+ * the system appearance changes, without reloading the document.
+ * Live-preview typography and widget styling for headings, links, images,
+ * math, tables, and task checkboxes lives at the end of this file.
+ *
+ * KaTeX's own stylesheet is loaded separately by index.html from
+ * public/katex/ (see vite.config.ts) rather than @import-ed here, so its
+ * fonts are copied verbatim instead of being bundled/inlined.
+ */
+
+:root {
+  --smudge-font-size: 15px;
+  --smudge-font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
+  --smudge-font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+  --smudge-line-height: 1.65;
+  --smudge-content-width: 46rem;
+  --smudge-padding-block: 2rem;
+  --smudge-padding-inline: 5.5rem;
+
+  --smudge-bg: #ffffff;
+  --smudge-fg: #1d1d1f;
+  --smudge-muted: #6e6e73;
+  --smudge-faint: #a1a1a6;
+  --smudge-accent: #0a63c9;
+  --smudge-selection: rgba(10, 99, 201, 0.22);
+  --smudge-cursor: #1d1d1f;
+  --smudge-rule: rgba(0, 0, 0, 0.12);
+  --smudge-surface: rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="dark"] {
+  --smudge-bg: #1e1e1e;
+  --smudge-fg: #e8e8ed;
+  --smudge-muted: #9b9ba1;
+  --smudge-faint: #6e6e76;
+  --smudge-accent: #6fb0ff;
+  --smudge-selection: rgba(111, 176, 255, 0.28);
+  --smudge-cursor: #e8e8ed;
+  --smudge-rule: rgba(255, 255, 255, 0.14);
+  --smudge-surface: rgba(255, 255, 255, 0.06);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--smudge-bg);
+  color: var(--smudge-fg);
+  font-family: var(--smudge-font-family);
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  overflow: hidden;
+}
+
+#smudge-root {
+  height: 100%;
+}
+
+/* Only the editable surface should be selectable. */
+.cm-editor {
+  height: 100%;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.cm-editor.cm-focused {
+  outline: none;
+}
+
+.cm-scroller {
+  font-family: var(--smudge-font-family);
+  font-size: var(--smudge-font-size);
+  line-height: var(--smudge-line-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cm-content {
+  max-width: var(--smudge-content-width);
+  margin: 0 auto;
+  padding: var(--smudge-padding-block) var(--smudge-padding-inline);
+  caret-color: var(--smudge-cursor);
+}
+
+/* Raw mode: monospaced, full width, no reading measure. */
+.cm-editor[data-mode="raw"] .cm-scroller {
+  font-family: var(--smudge-font-mono);
+}
+
+.cm-editor[data-mode="raw"] .cm-content {
+  max-width: none;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Live preview: heading, quote, and code-block line styling               */
+/* ---------------------------------------------------------------------- */
+
+.cm-md-heading {
+  /*
+   * This class is applied via `Decoration.line`, i.e. directly on
+   * CodeMirror's own `.cm-line` block container for the whole line — not
+   * on an inner span wrapping just the heading text. `display: inline-block`
+   * here used to make that *entire line container* participate in an inline
+   * formatting context, which gets it baseline-aligned against an invisible
+   * "strut" sized by the surrounding line-height. Since a heading's
+   * font-size is larger than the base text, that strut/baseline math no
+   * longer lines up with what CodeMirror's own cursor/line-height
+   * measurements assume, visibly offsetting the caret on the line(s)
+   * following the heading (worse for larger headings — this is what made it
+   * most obvious right after an H3). `.cm-line` is already `display: block`
+   * by default, which is what it needs to stay in CodeMirror's normal line
+   * flow, so this rule doesn't need to (and shouldn't) change `display` at
+   * all — only the font weight.
+   */
+  font-weight: 600;
+}
+/*
+ * Deliberately modest font-size steps (rather than the more dramatic
+ * 1.8/1.5/1.25/1.1em tried initially): CodeMirror's vertical cursor motion
+ * (ArrowUp/ArrowDown) estimates its scan step from one averaged line-height
+ * across the whole document, and large per-line height swings were enough
+ * to make it land on completely wrong lines once the selection had crossed
+ * a heading (verified directly — a real regression, not a style nitpick).
+ * These smaller, still-clearly-hierarchical steps were confirmed to keep
+ * vertical navigation correct through every heading level.
+ */
+.cm-md-h1 { font-size: 1.3em; }
+.cm-md-h2 { font-size: 1.2em; }
+.cm-md-h3 { font-size: 1.1em; }
+.cm-md-h4 { font-size: 1.05em; }
+.cm-md-h5,
+.cm-md-h6 { font-size: 1em; color: var(--smudge-muted); }
+
+.cm-md-quote-line {
+  border-left: 3px solid var(--smudge-rule);
+  background: var(--smudge-surface);
+  padding: 0.05em 0.75em;
+}
+
+.cm-md-bullet {
+  color: var(--smudge-muted);
+  margin-right: 0.5em;
+  user-select: none;
+}
+
+.cm-md-dt-line {
+  font-weight: 600;
+}
+
+.cm-md-dd-line {
+  padding-left: 1.5em;
+}
+
+.cm-md-code-block-line {
+  background: var(--smudge-surface);
+  font-family: var(--smudge-font-mono);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Live preview: inline styling                                            */
+/* ---------------------------------------------------------------------- */
+
+.cm-md-strong { font-weight: 600; }
+.cm-md-em { font-style: italic; }
+.cm-md-strike { text-decoration: line-through; color: var(--smudge-muted); }
+.cm-md-sub { vertical-align: sub; font-size: 0.8em; }
+.cm-md-sup { vertical-align: super; font-size: 0.8em; }
+.cm-md-highlight {
+  background: #fef08a;
+  color: #1d1d1f;
+  border-radius: 3px;
+  padding: 0.05em 0.15em;
+}
+:root[data-theme="dark"] .cm-md-highlight {
+  background: #7a6a17;
+  color: #e8e8ed;
+}
+.cm-md-code {
+  font-family: var(--smudge-font-mono);
+  background: var(--smudge-surface);
+  border-radius: 4px;
+  padding: 0.05em 0.3em;
+}
+.cm-md-link-text {
+  color: var(--smudge-accent);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  transition: text-decoration-color 120ms ease;
+}
+.cm-md-link-text:hover {
+  text-decoration-color: var(--smudge-accent);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Live preview: replaced block/inline widgets                             */
+/* ---------------------------------------------------------------------- */
+
+.cm-md-hr {
+  border: none;
+  border-top: 1px solid var(--smudge-rule);
+  margin: 0.15em 0;
+}
+
+.cm-md-image {
+  display: inline-block;
+}
+.cm-md-image-block {
+  display: block;
+  margin: 0.75em 0;
+}
+.cm-md-image img {
+  max-width: 100%;
+  border-radius: 6px;
+  vertical-align: middle;
+}
+.cm-md-image-error {
+  color: var(--smudge-muted);
+  font-style: italic;
+  border: 1px dashed var(--smudge-rule);
+  border-radius: 4px;
+  padding: 0.5em 0.75em;
+  display: inline-block;
+}
+
+.cm-md-checkbox {
+  margin: 0 0.4em 0 0;
+  vertical-align: middle;
+  accent-color: var(--smudge-accent);
+}
+
+.cm-md-emoji {
+  font-style: normal;
+}
+
+.cm-md-math {
+  color: var(--smudge-fg);
+}
+.cm-md-math-block {
+  display: block;
+  margin: 0.75em 0;
+  overflow-x: auto;
+}
+.cm-md-math-error {
+  color: var(--smudge-muted);
+  font-family: var(--smudge-font-mono);
+  background: var(--smudge-surface);
+  border-radius: 4px;
+  padding: 0.05em 0.3em;
+}
+
+.cm-md-table {
+  /*
+   * A GFM table's `Decoration.replace({widget, block:true})` collapses N
+   * real source lines (header + delimiter + rows) into one rendered DOM
+   * block. CodeMirror's vertical cursor motion (ArrowUp/ArrowDown) uses a
+   * single averaged line-height across the whole document to decide how far
+   * one keypress moves — the same mechanism that caused the earlier
+   * heading/horizontal-rule cursor-desync bugs. A table rendered with
+   * generous margin/padding is tall enough, relative to the N lines it
+   * replaces, to skew that average and make the *next* ordinary line-to-line
+   * step (right after the table) land one line off — exactly the "cursor
+   * out of sync by one line after a table" symptom. Keeping this margin
+   * small (verified directly against real arrow-key navigation) keeps the
+   * table's rendered height proportional enough to its source line count
+   * for CodeMirror's estimate to stay accurate.
+   */
+  margin: 0.15em 0;
+  overflow-x: auto;
+}
+.cm-md-table table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95em;
+}
+.cm-md-table th,
+.cm-md-table td {
+  border: 1px solid var(--smudge-rule);
+  padding: 0.25em 0.6em;
+  text-align: left;
+}
+.cm-md-table th {
+  background: var(--smudge-surface);
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Front matter                                                            */
+/* ---------------------------------------------------------------------- */
+
+.cm-md-frontmatter-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  margin: 0.5em 0 1em;
+  padding: 0.3em 0.6em;
+  border-radius: 6px;
+  background: var(--smudge-surface);
+  border: 1px solid var(--smudge-rule);
+  color: var(--smudge-muted);
+  font-size: 0.9em;
+  cursor: pointer;
+}
+.cm-md-frontmatter-bar:hover {
+  border-color: var(--smudge-faint);
+}
+.cm-md-frontmatter-error {
+  border-color: #c0392b;
+  color: #c0392b;
+}
+.cm-md-frontmatter-icon {
+  opacity: 0.6;
+  font-size: 0.8em;
+}
+.cm-md-frontmatter-value {
+  color: var(--smudge-fg);
+  font-weight: 500;
+}
+.cm-md-frontmatter-chip {
+  background: var(--smudge-bg);
+  border: 1px solid var(--smudge-rule);
+  border-radius: 999px;
+  padding: 0.05em 0.6em;
+  font-size: 0.85em;
+}
+.cm-md-frontmatter-delim {
+  color: var(--smudge-faint);
+  font-family: var(--smudge-font-mono);
+  background: var(--smudge-surface);
+}
+.cm-md-frontmatter-invalid {
+  box-shadow: inset 3px 0 0 #c0392b;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Performance profile: reduced-profile placeholders                       */
+/* ---------------------------------------------------------------------- */
+
+.cm-md-collapsed {
+  display: inline-block;
+  color: var(--smudge-muted);
+  background: var(--smudge-surface);
+  border: 1px dashed var(--smudge-rule);
+  border-radius: 4px;
+  padding: 0.05em 0.5em;
+  font-size: 0.9em;
+  font-style: italic;
+  cursor: default;
+}
+
+
